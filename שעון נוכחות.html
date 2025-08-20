@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>שעון נוכחות חכם מרובה משתמשים</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.rtl.min.css" rel="stylesheet" integrity="sha384-nU14brUcp6StFntEOOEBvcJm4huWjB0OcIeQ3fltAfSmuZFrkAif0T+UtNGlKKQv" crossorigin="anonymous">
+    
+    <!-- Google Fonts (Heebo) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700&display=swap" rel="stylesheet">
+    
+    <!-- Favicon -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⏱️</text></svg>">
+    
+    <style>
+        :root {
+            --bs-primary-rgb: 71, 85, 105; /* Slate-600 */
+            --bs-success-rgb: 22, 163, 74; /* Green-600 */
+            --bs-warning-rgb: 245, 158, 11; /* Amber-500 */
+            --bs-danger-rgb: 220, 38, 38; /* Red-600 */
+            --bs-light-rgb: 241, 245, 249; /* Slate-100 */
+            --bs-body-font-family: 'Heebo', sans-serif;
+            --bs-body-bg: #f8fafc; /* Slate-50 */
+        }
+
+        body {
+            font-family: var(--bs-body-font-family);
+            background-color: var(--bs-body-bg);
+        }
+
+        .view { display: none; }
+        .view.active { display: block; }
+        
+        .main-card {
+            border: none;
+            border-radius: 0.75rem;
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
+            transition: all 0.3s ease-in-out;
+        }
+
+        .btn {
+            border-radius: 0.5rem;
+            font-weight: 500;
+            transition: all 0.2s ease-in-out;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        .form-control {
+            border-radius: 0.5rem;
+        }
+        .form-control:focus {
+            box-shadow: 0 0 0 0.25rem rgba(var(--bs-primary-rgb), 0.25);
+            border-color: rgba(var(--bs-primary-rgb), 0.5);
+        }
+
+        @keyframes glow {
+            0% { box-shadow: 0 0 5px rgba(var(--bs-success-rgb), 0.3); }
+            50% { box-shadow: 0 0 20px rgba(var(--bs-success-rgb), 0.6); }
+            100% { box-shadow: 0 0 5px rgba(var(--bs-success-rgb), 0.3); }
+        }
+        .card.active-task {
+            border-color: rgba(var(--bs-success-rgb), 0.8);
+            animation: glow 2s infinite ease-in-out;
+        }
+        
+        .task-card {
+            border-radius: 0.5rem;
+            border: 1px solid #e5e7eb;
+            transition: box-shadow 0.2s ease-in-out;
+        }
+        .task-card:hover {
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+        }
+
+        .task-time {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 2rem;
+            font-weight: bold;
+        }
+
+        .summary-total {
+            font-size: 1.5rem;
+            font-weight: 500;
+        }
+        
+        .btn-icon {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .login-container, .admin-container {
+            max-width: 500px;
+            margin: 5rem auto;
+        }
+        
+        .modal-content {
+            border-radius: 0.75rem;
+            border: none;
+        }
+        .modal-header {
+            border-bottom: 1px solid #f1f5f9; /* Slate-100 */
+        }
+        .modal-footer {
+            border-top: 1px solid #f1f5f9; /* Slate-100 */
+            background-color: #f8fafc; /* Slate-50 */
+        }
+    </style>
+</head>
+<body>
+
+<div class="container mt-5">
+
+    <!-- ==== מסך כניסה ==== -->
+    <div id="loginView" class="view active">
+        <div class="login-container">
+            <div class="card main-card">
+                <div class="card-body p-4 p-md-5">
+                    <h1 class="card-title text-center text-primary mb-4">כניסה למערכת</h1>
+                    <div class="mb-3">
+                        <label for="username" class="form-label">שם משתמש</label>
+                        <input type="text" class="form-control form-control-lg" id="username">
+                    </div>
+                    <div class="mb-4">
+                        <label for="password" class="form-label">סיסמה</label>
+                        <input type="password" class="form-control form-control-lg" id="password">
+                    </div>
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-primary btn-lg" onclick="login()">התחבר</button>
+                        <button class="btn btn-outline-secondary" onclick="handleAdminLogin()">כניסת מנהל</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==== שעון נוכחות ==== -->
+    <div id="taskTrackerView" class="view">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 id="welcomeMessage" class="text-muted fw-normal"></h5>
+            <button class="btn btn-sm btn-outline-danger" onclick="logout()">התנתק</button>
+        </div>
+        <div class="card main-card">
+            <div class="card-body p-4 p-md-5">
+                <h1 class="card-title text-center text-primary mb-4">שעון נוכחות משימתי</h1>
+                
+                <div class="input-group mb-4">
+                    <input type="text" id="taskNameInput" class="form-control form-control-lg" placeholder="הוסף משימה חדשה...">
+                    <button class="btn btn-primary btn-lg" onclick="addTask()">הוסף</button>
+                </div>
+                
+                <ul id="taskList" class="list-unstyled"></ul>
+
+                <hr class="my-4">
+
+                <div class="card bg-light border-0">
+                    <div class="card-body text-center">
+                        <div class="row align-items-center gx-3">
+                            <div class="col-md-4 mb-2 mb-md-0">
+                                <div class="input-group justify-content-center">
+                                    <span class="input-group-text">₪</span>
+                                    <input type="number" id="hourlyWage" class="form-control" value="30" onchange="updateSummary()" style="max-width: 100px;">
+                                    <span class="input-group-text">לשעה</span>
+                                </div>
+                            </div>
+                            <div class="col-md-4 mb-2 mb-md-0">
+                                <div id="totalHours" class="summary-total">סה"כ שעות: 0.00</div>
+                            </div>
+                            <div class="col-md-4">
+                                <div id="totalPayment" class="summary-total text-success">סה"כ לתשלום: 0.00 ₪</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==== פאנל ניהול ==== -->
+    <div id="adminView" class="view">
+        <div class="admin-container">
+            <div class="card main-card">
+                <div class="card-body p-4 p-md-5">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h1 class="card-title text-primary mb-0">פאנל ניהול</h1>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="showView('loginView')">חזור לכניסה</button>
+                    </div>
+                    
+                    <div class="card bg-light mb-4 border-0">
+                        <div class="card-body">
+                            <h5 class="card-title">הוספת משתמש חדש</h5>
+                            <div class="mb-2">
+                                <input type="text" id="newUsername" class="form-control" placeholder="שם משתמש חדש">
+                            </div>
+                            <div class="mb-2">
+                                <input type="password" id="newPassword" class="form-control" placeholder="סיסמה">
+                            </div>
+                            <button class="btn btn-success" onclick="addUser()">הוסף משתמש</button>
+                        </div>
+                    </div>
+
+                    <h5>משתמשים קיימים</h5>
+                    <ul id="userList" class="list-group"></ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- המודאל המותאם אישית הגנרי -->
+<div class="modal fade" id="customModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="customModalTitle"></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="customModalBody"></div>
+            <div class="modal-footer" id="customModalFooter"></div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
+
+<script>
+    const STORAGE_KEY = 'timeTrackerAppMultiUser';
+    const DEFAULT_ADMIN_PASSWORD = 'admin123';
+    let appData = {};
+    let currentUser = null;
+    let intervalId;
+    let customModal = null;
+
+    const ICONS = {
+        play: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-play-fill" viewBox="0 0 16 16"><path d="m11.596 8.697-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393z"/></svg>`,
+        pause: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-pause-fill" viewBox="0 0 16 16"><path d="M5.5 3.5A1.5 1.5 0 0 1 7 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5zm5 0A1.5 1.5 0 0 1 12 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5z"/></svg>`,
+        reset: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-clockwise" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/><path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/></svg>`,
+        delete: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-trash3-fill" viewBox="0 0 16 16"><path d="M11 1.5v1h3.5a.5.5 0 0 1 0 1h-.538l-.853 10.66A2 2 0 0 1 11.115 16h-6.23a2 2 0 0 1-1.994-1.84L2.038 3.5H1.5a.5.5 0 0 1 0-1H5v-1A1.5 1.5 0 0 1 6.5 0h3A1.5 1.5 0 0 1 11 1.5Zm-5 0v1h4v-1a.5.5 0 0 0-.5-.5h-3a.5.5 0 0 0-.5.5Z"/></svg>`
+    };
+    
+    document.addEventListener('DOMContentLoaded', () => {
+        const modalEl = document.getElementById('customModal');
+        customModal = new bootstrap.Modal(modalEl);
+        initializeApp();
+    });
+
+    // --- מערכת מודאלים גנרית ---
+    function showCustomModal({ title, body, buttons }) {
+        return new Promise((resolve) => {
+            const titleEl = document.getElementById('customModalTitle');
+            const bodyEl = document.getElementById('customModalBody');
+            const footerEl = document.getElementById('customModalFooter');
+
+            titleEl.innerHTML = title;
+            bodyEl.innerHTML = body;
+            footerEl.innerHTML = '';
+
+            buttons.forEach(btn => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = `btn ${btn.className}`;
+                button.innerHTML = btn.text;
+                button.addEventListener('click', () => {
+                    const input = bodyEl.querySelector('input');
+                    resolve(input ? input.value : btn.value);
+                    customModal.hide();
+                }, { once: true });
+                footerEl.appendChild(button);
+            });
+
+            const modalEl = document.getElementById('customModal');
+            modalEl.addEventListener('hidden.bs.modal', () => resolve(null), { once: true });
+            
+            customModal.show();
+            // פוקוס על שדה הקלט אם קיים
+            const input = bodyEl.querySelector('input');
+            if (input) input.focus();
+        });
+    }
+
+    // --- ניהול נתונים ומשתמשים ---
+    function initializeApp() {
+        loadData();
+        showView('loginView');
+        startTimerUpdater();
+    }
+
+    function loadData() {
+        const storedData = localStorage.getItem(STORAGE_KEY);
+        appData = storedData ? JSON.parse(storedData) : { adminPassword: DEFAULT_ADMIN_PASSWORD, users: {} };
+    }
+
+    function saveData() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+    }
+
+    async function login() {
+        const username = document.getElementById('username').value.trim();
+        const password = document.getElementById('password').value;
+        if (!username || !password) {
+            await showCustomModal({
+                title: 'שגיאת כניסה',
+                body: 'נא למלא שם משתמש וסיסמה.',
+                buttons: [{ text: 'הבנתי', className: 'btn-primary', value: true }]
+            });
+            return;
+        }
+
+        const user = appData.users[username];
+        if (user && user.password === password) {
+            currentUser = username;
+            document.getElementById('welcomeMessage').innerText = `ברוך הבא, ${currentUser}`;
+            showView('taskTrackerView');
+            renderTasks();
+        } else {
+            await showCustomModal({
+                title: 'שגיאת כניסה',
+                body: 'שם משתמש או סיסמה שגויים.',
+                buttons: [{ text: 'סגור', className: 'btn-danger', value: true }]
+            });
+        }
+        document.getElementById('username').value = '';
+        document.getElementById('password').value = '';
+    }
+
+    function logout() {
+        if(currentUser && appData.users[currentUser]){
+            const runningTask = getTasks().find(t => t.status === 'running');
+            if (runningTask) pauseTask(runningTask.id, false);
+        }
+        currentUser = null;
+        showView('loginView');
+    }
+
+    // --- פאנל ניהול ---
+    async function handleAdminLogin() {
+        const pass = await showCustomModal({
+            title: 'כניסת מנהל',
+            body: `<label for="adminPassInput" class="form-label">נא להזין סיסמת מנהל:</label>
+                   <input type="password" id="adminPassInput" class="form-control">`,
+            buttons: [
+                { text: 'ביטול', className: 'btn-secondary', value: null },
+                { text: 'אישור', className: 'btn-primary', value: true }
+            ]
+        });
+
+        if (pass === appData.adminPassword) {
+            renderAdminPanel();
+            showView('adminView');
+        } else if (pass !== null) {
+            await showCustomModal({
+                title: 'שגיאה',
+                body: 'סיסמת מנהל שגויה.',
+                buttons: [{ text: 'סגור', className: 'btn-danger', value: true }]
+            });
+        }
+    }
+
+    function renderAdminPanel() {
+        const userList = document.getElementById('userList');
+        userList.innerHTML = '';
+        Object.keys(appData.users).forEach(username => {
+            const li = document.createElement('li');
+            li.className = 'list-group-item d-flex justify-content-between align-items-center';
+            li.innerHTML = `<span>${username}</span> <button class="btn btn-sm btn-outline-danger" onclick="deleteUser('${username}')">${ICONS.delete}</button>`;
+            userList.appendChild(li);
+        });
+    }
+
+    async function addUser() {
+        const newUsername = document.getElementById('newUsername').value.trim();
+        const newPassword = document.getElementById('newPassword').value;
+
+        if (!newUsername || !newPassword) {
+            await showCustomModal({ title: 'שגיאה', body: 'נא למלא שם משתמש וסיסמה חדשים.', buttons: [{ text: 'הבנתי', className: 'btn-primary', value: true }]});
+            return;
+        }
+        if (appData.users[newUsername]) {
+            await showCustomModal({ title: 'שגיאה', body: 'שם המשתמש כבר קיים.', buttons: [{ text: 'הבנתי', className: 'btn-primary', value: true }]});
+            return;
+        }
+
+        appData.users[newUsername] = { password: newPassword, tasks: [] };
+        saveData();
+        await showCustomModal({ title: 'הצלחה', body: `משתמש "${newUsername}" נוסף בהצלחה.`, buttons: [{ text: 'מעולה', className: 'btn-success', value: true }]});
+        document.getElementById('newUsername').value = '';
+        document.getElementById('newPassword').value = '';
+        renderAdminPanel();
+    }
+    
+    async function deleteUser(username) {
+        const confirmed = await showCustomModal({
+            title: 'מחיקת משתמש',
+            body: `האם אתה בטוח שברצונך למחוק את המשתמש <strong>"${username}"</strong> וכל המשימות שלו לצמיתות?`,
+            buttons: [
+                { text: 'ביטול', className: 'btn-secondary', value: false },
+                { text: 'מחק', className: 'btn-danger', value: true }
+            ]
+        });
+        if (confirmed) {
+            delete appData.users[username];
+            saveData();
+            renderAdminPanel();
+        }
+    }
+
+    // --- ניהול תצוגה ופונקציות משימות ---
+    function showView(viewId) {
+        document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+        document.getElementById(viewId).classList.add('active');
+    }
+
+    function getTasks() {
+        return currentUser ? appData.users[currentUser].tasks : [];
+    }
+    
+    async function addTask() {
+        if (!currentUser) return;
+        const taskNameInput = document.getElementById('taskNameInput');
+        const taskName = taskNameInput.value.trim();
+        if (taskName === '') {
+            await showCustomModal({ title: 'שגיאה', body: 'נא להזין שם למשימה.', buttons: [{ text: 'הבנתי', className: 'btn-primary', value: true }]});
+            return;
+        }
+        
+        getTasks().push({ id: Date.now(), name: taskName, totalTime: 0, status: 'paused', currentSessionStartTime: null });
+        taskNameInput.value = '';
+        saveData();
+        renderTasks();
+    }
+
+    function toggleTask(taskId) {
+        if (!currentUser) return;
+        const tasks = getTasks();
+        const taskToToggle = tasks.find(t => t.id === taskId);
+        if (!taskToToggle) return;
+        
+        tasks.forEach(t => { if (t.status === 'running' && t.id !== taskId) pauseTask(t.id, false); });
+        
+        if (taskToToggle.status === 'running') pauseTask(taskId); else startTask(taskId);
+    }
+    
+    function startTask(taskId) {
+        const task = getTasks().find(t => t.id === taskId);
+        task.status = 'running';
+        task.currentSessionStartTime = Date.now();
+        saveData();
+        renderTasks();
+    }
+
+    function pauseTask(taskId, doRender = true) {
+        const task = getTasks().find(t => t.id === taskId);
+        if (!task || task.status !== 'running') return;
+        
+        task.totalTime += Date.now() - task.currentSessionStartTime;
+        task.status = 'paused';
+        task.currentSessionStartTime = null;
+        saveData();
+        if (doRender) renderTasks();
+    }
+
+    async function resetTask(taskId) {
+        const confirmed = await showCustomModal({
+            title: 'איפוס משימה',
+            body: 'האם אתה בטוח שברצונך לאפס את זמן המשימה?',
+            buttons: [
+                { text: 'ביטול', className: 'btn-secondary', value: false },
+                { text: 'אפס', className: 'btn-warning', value: true }
+            ]
+        });
+        if (confirmed) {
+            const task = getTasks().find(t => t.id === taskId);
+            task.totalTime = 0; task.status = 'paused'; task.currentSessionStartTime = null;
+            saveData();
+            renderTasks();
+        }
+    }
+
+    async function deleteTask(taskId) {
+        const confirmed = await showCustomModal({
+            title: 'מחיקת משימה',
+            body: 'האם אתה בטוח שברצונך למחוק את המשימה לצמיתות?',
+            buttons: [
+                { text: 'ביטול', className: 'btn-secondary', value: false },
+                { text: 'מחק', className: 'btn-danger', value: true }
+            ]
+        });
+        if (confirmed) {
+            appData.users[currentUser].tasks = getTasks().filter(t => t.id !== taskId);
+            saveData();
+            renderTasks();
+        }
+    }
+    
+    // --- רינדור וחישוב ---
+    function renderTasks() {
+        if (!currentUser) return;
+        const tasks = getTasks();
+        const taskList = document.getElementById('taskList');
+        taskList.innerHTML = '';
+        tasks.forEach(task => {
+            const isRunning = task.status === 'running';
+            const cardClass = isRunning ? 'active-task' : '';
+            const li = document.createElement('li');
+            li.innerHTML = `
+                <div class="card task-card mb-3 ${cardClass}">
+                    <div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-3">
+                        <div>
+                            <h5 class="card-title mb-0">${task.name}</h5>
+                            <span class="task-time text-muted">${formatTime(task.totalTime + (isRunning ? Date.now() - task.currentSessionStartTime : 0))}</span>
+                        </div>
+                        <div class="btn-group" role="group">
+                            <button class="btn ${isRunning ? 'btn-warning' : 'btn-success'} btn-icon" onclick="toggleTask(${task.id})">${isRunning ? ICONS.pause + 'השהה' : ICONS.play + 'התחל'}</button>
+                            <button class="btn btn-outline-danger btn-icon" onclick="resetTask(${task.id})">${ICONS.reset} אפס</button>
+                            <button class="btn btn-outline-secondary btn-icon" onclick="deleteTask(${task.id})">${ICONS.delete} מחק</button>
+                        </div>
+                    </div>
+                </div>`;
+            taskList.appendChild(li);
+        });
+        updateSummary();
+    }
+    
+    function updateSummary() {
+        if (!currentUser) return;
+        const hourlyWage = parseFloat(document.getElementById('hourlyWage').value) || 0;
+        let totalMilliseconds = getTasks().reduce((acc, task) => acc + (task.totalTime + (task.status === 'running' ? Date.now() - task.currentSessionStartTime : 0)), 0);
+        const totalHours = totalMilliseconds / (1000 * 60 * 60);
+        document.getElementById('totalHours').textContent = `סה"כ שעות: ${totalHours.toFixed(2)}`;
+        document.getElementById('totalPayment').textContent = `סה"כ לתשלום: ${(totalHours * hourlyWage).toFixed(2)} ₪`;
+    }
+
+    function startTimerUpdater() {
+        if (intervalId) clearInterval(intervalId);
+        intervalId = setInterval(() => {
+            if (currentUser && getTasks().some(t => t.status === 'running')) {
+                renderTasks();
+            }
+        }, 1000);
+    }
+    
+    function formatTime(ms) {
+        const totalSeconds = Math.floor(ms / 1000);
+        const hours = String(Math.floor(totalSeconds / 3600)).padStart(2, '0');
+        const minutes = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0');
+        const seconds = String(totalSeconds % 60).padStart(2, '0');
+        return `${hours}:${minutes}:${seconds}`;
+    }
+</script>
+
+</body>
+</html>
